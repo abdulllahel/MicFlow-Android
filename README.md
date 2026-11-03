@@ -3,6 +3,11 @@
 <p align="center"><b>Talk instead of type, in any app on your phone.</b><br>
 Free. No word limit. English, Bengali, or both in one sentence.</p>
 
+<p align="center">
+  <img src="screenshots/setup.png" width="260" alt="MicFlow setup: add your key, allow the microphone, turn on the bubble">
+  <img src="screenshots/settings.png" width="260" alt="MicFlow settings and the Try it here box, with the mic bubble on the right">
+</p>
+
 ## Why use it?
 
 - **Faster than typing.** Speak a message and it's written for you.
