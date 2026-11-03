@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The flame character from the Mac app's icon, as an adaptive icon foreground (108dp canvas,
+     artwork scaled from the 1024 source and kept inside the safe zone). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group android:pivotX="512" android:pivotY="560" android:scaleX="0.74" android:scaleY="0.74">
+    <path android:pathData="M -10 1034 L -10 730 C 20 560 120 400 200 314 C 232 288 250 380 276 590 C 292 400 370 140 545 128 C 650 124 715 170 736 490 C 748 370 772 292 806 292 C 860 296 920 430 1034 610 L 1034 1034 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="512" android:startY="120" android:endX="512" android:endY="1024">
+                <item android:offset="0" android:color="#FFFFF6DC" />
+                <item android:offset="0.5" android:color="#FFF1E6BE" />
+                <item android:offset="1" android:color="#FFA9D6A4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#FF1F4029" android:pathData="M 341 796 A 59 112 0 1 0 459 796 A 59 112 0 1 0 341 796 Z" />
+    <path android:fillColor="#FF1F4029" android:pathData="M 533 800 A 59 112 0 1 0 651 800 A 59 112 0 1 0 533 800 Z" />
+    </group>
+</vector>

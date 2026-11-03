@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MicFlow</string>
+    <string name="service_name">MicFlow voice typing</string>
+    <string name="service_description">Shows a small mic bubble when you tap a text field. Tap it, speak English, Bengali or both, and tap the check mark: MicFlow puts your words into the field. MicFlow only looks at which field is selected so it can place the bubble and insert your text.</string>
+</resources>
