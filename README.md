@@ -44,7 +44,7 @@ What you say is sent to a secure cloud speech service to turn it into text. Don'
 
 ## Also for Mac
 
-[MicFlow for Mac](https://github.com/Le-codesign/MicFlow): hold a key, talk, and your words are typed anywhere.
+[MicFlow for Mac](https://github.com/abdulllahel/MicFlow): hold a key, talk, and your words are typed anywhere.
 
 ## For developers
 
