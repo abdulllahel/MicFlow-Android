@@ -54,6 +54,7 @@ class MicFlowService : AccessibilityService() {
         windows = getSystemService(WINDOW_SERVICE) as WindowManager
         top = TopBubble(this, windows)
         Settings.prefs(this).registerOnSharedPreferenceChangeListener(settingsChanged)
+        UniversalClipboard.startListening(this)
         if (BuildConfig.DEBUG) registerTestHook()
     }
 
@@ -86,6 +87,7 @@ class MicFlowService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED && isCopyButton(event)) sendClipboardSoon()
         if (recording) return
         val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         try {
@@ -97,9 +99,24 @@ class MicFlowService : AccessibilityService() {
         }
     }
 
+    /** A tap on a Copy button (text selection toolbar, or an app's own Copy). */
+    private fun isCopyButton(event: AccessibilityEvent): Boolean {
+        val label = (event.text.joinToString(" ").ifBlank { event.contentDescription?.toString().orEmpty() }).trim().lowercase()
+        return label == "copy" || label == "copy text" || label == "copy link" || label == "copy image"
+    }
+
+    /** Android lets only the app in front read the clipboard, so a moment after Copy an invisible MicFlow screen reads and sends it. */
+    private fun sendClipboardSoon() {
+        if (!UniversalClipboard.enabled(this) || !MicFlowApp.shared.account.isSignedIn) return
+        android.os.Handler(mainLooper).postDelayed({
+            runCatching { startActivity(android.content.Intent(this, ClipboardSendActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }, 300)
+    }
+
     override fun onInterrupt() = cancelRecording()
 
     override fun onDestroy() {
+        UniversalClipboard.stopListening()
         Settings.prefs(this).unregisterOnSharedPreferenceChangeListener(settingsChanged)
         cancelRecording()
         hideBubble()

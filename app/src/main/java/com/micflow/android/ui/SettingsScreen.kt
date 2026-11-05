@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
@@ -110,6 +111,7 @@ private fun GeneralTab(app: MicFlowApp) {
         Note("Logging out pauses voice typing and removes your key from this phone. It comes back when you log in again.")
         PillButton("Log out", Icons.AutoMirrored.Filled.Logout, PillStyle.Outline) { account.signOut() }
     }
+    ClipboardCard(app)
     FeatureCard(Icons.Filled.SystemUpdate, "Updates", "You have MicFlow ${updater.currentVersion}") {
         when (val state = updater.state) {
             Updater.State.Idle -> PillButton("Check for updates", Icons.Filled.Refresh) { updater.check() }
@@ -370,4 +372,25 @@ private fun PlatformTag(platform: RequestPlatform) {
     }
     Text(platform.title, color = Palette.white, fontSize = 10.sp, fontWeight = FontWeight.Bold,
          modifier = Modifier.clip(CircleShape).background(color).padding(horizontal = 8.dp, vertical = 3.dp))
+}
+
+/** Universal Clipboard: on/off, this phone's pairing code, entering the Mac's code. */
+@Composable
+private fun ClipboardCard(app: MicFlowApp) {
+    val context = LocalContext.current
+    @Suppress("UNUSED_VARIABLE") val revision = app.revision
+    val clip = com.micflow.android.UniversalClipboard
+    LaunchedEffect(Unit) { clip.load(context) }
+    var entered by remember { mutableStateOf("") }
+    var wrong by remember { mutableStateOf(false) }
+    FeatureCard(Icons.Filled.ContentPaste, "Universal Clipboard", "Copy here, paste on your Mac",
+                isOn = clip.enabled(context), onToggle = { clip.setEnabled(context, it) }) {
+        Note("Text and images you copy go to your other devices, end-to-end encrypted. Tap Copy as usual; if an app doesn't send, use the Send clipboard tile in Quick Settings.")
+        Note("To link your Mac, enter the code from MicFlow on the Mac (Settings › General), or enter this phone's code there:")
+        Text(clip.code ?: "", color = Palette.cream, fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+        PillField(entered, { entered = it; wrong = false }, "Code from your Mac")
+        PillButton("Link", Icons.Filled.ContentPaste) { wrong = !clip.useCode(context, entered); if (!wrong) entered = "" }
+        if (wrong) Note("That isn't a valid code: it has 16 letters and numbers.", isError = true)
+        if (clip.status.isNotEmpty()) Note(clip.status)
+    }
 }
