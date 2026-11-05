@@ -4,52 +4,27 @@
 Free. No word limit. English, Bengali, or both in one sentence.</p>
 
 <p align="center">
-  <img src="screenshots/setup.png" width="260" alt="MicFlow setup: add your key, allow the microphone, turn on the bubble">
-  <img src="screenshots/settings.png" width="260" alt="MicFlow settings and the Try it here box, with the mic bubble on the right">
+  <img src="screenshots/login.jpg" width="240" alt="Sign in with Google to start using voice typing">
+  <img src="screenshots/home.jpg" width="240" alt="Home: words today, activity, languages and your numbers">
+  <img src="screenshots/voice.jpg" width="240" alt="Voice Typing: permissions with picture guides">
 </p>
 
 ## Why use it?
 
-- **Faster than typing.** Speak a message and it's written for you.
-- **Works everywhere.** WhatsApp, Gmail, Messenger, notes, any text box.
-- **Words appear as you speak**, right inside the text box.
-- **Cleaned up for you.** A moment later, spelling, punctuation and filler words ("um") are fixed.
-- **Your edits are safe.** If you change the text first, MicFlow leaves it alone.
-- **Stops by itself** when you stop talking.
+- **Faster than typing.** Tap the mic bubble beside any text box, speak, and it's written for you: WhatsApp, Gmail, Messenger, notes, anything.
+- **Words appear as you speak**, then a moment later spelling, punctuation and filler words are cleaned up. Your own edits are never touched.
+- **One account with the Mac app.** Sign in with Google: your free voice key is made for you, and your key, words, mix-ups and instructions come over from MicFlow on your Mac.
+- **Home shows your numbers:** words today, speed, streak, languages and every dictation.
+- **Two models:** Model 1 (best, live words, English and Bengali mixed) and Model 2 (needs no key; one language at a time).
+- **Notifications** for new versions (one tap to update) and news.
 
-## How it works
+## Install
 
-1. Tap a text box. A small mic bubble appears.
-2. Tap the bubble and talk.
-3. Stop talking, or tap again. Done.
+Read the **[install guide with pictures (PDF)](MicFlow-Install-Guide.pdf)**. In short:
 
-Drag the bubble anywhere. It remembers the spot.
+1. Download `MicFlow-x.x.apk` from [Releases](../../releases/latest) in Chrome and tap **Download anyway**.
+2. Open it and tap **Install**. If Play Protect says **App blocked**, pause *Scan apps with Play Protect* (Play Store › profile › Play Protect › ⚙), install, and it turns back on by itself.
+3. Open MicFlow and **Sign in with Google**.
+4. In **Voice Typing**, allow the microphone and turn on MicFlow in **Accessibility**. If Android says *Restricted setting*: App info › ⋮ › **Allow restricted settings**, then try again.
 
-## Set it up
-
-1. Install the app (see [Releases](../../releases)).
-2. Open MicFlow and paste your free API key.
-3. Allow the microphone.
-4. Turn on MicFlow in **Settings → Accessibility**. This lets the bubble type for you.
-
-## Settings
-
-- Bubble size and see-through level
-- Stop after 3, 5 or 8 seconds of silence, or never
-- Clean-up on or off
-
-## Privacy
-
-What you say is sent to a secure cloud speech service to turn it into text. Don't dictate passwords. Nothing else leaves your phone.
-
-## Also for Mac
-
-[MicFlow for Mac](https://github.com/abdulllahel/MicFlow): hold a key, talk, and your words are typed anywhere.
-
-## For developers
-
-Kotlin, Android 8.0 or newer. Build with `gradle assembleDebug` (JDK 17, Android SDK 35).
-
-## License
-
-MIT
+MicFlow for Mac: [abdulllahel/MicFlow](https://github.com/abdulllahel/MicFlow).

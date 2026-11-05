@@ -37,8 +37,11 @@ class MicFlowService : AccessibilityService() {
 
     private var capture: AudioCapture? = null
     private var transcriber: LiveTranscriber? = null
+    private var model2: Model2Listener? = null
     private var live: LiveField? = null
-    private val recording get() = capture != null
+    private val recording get() = capture != null || model2 != null
+    /** When this dictation started, for Home's speaking time. */
+    private var startedAt = 0L
     /** When the voice was last heard, for stopping after silence. */
     private var lastSpeech = 0L
 
@@ -51,12 +54,47 @@ class MicFlowService : AccessibilityService() {
         windows = getSystemService(WINDOW_SERVICE) as WindowManager
         top = TopBubble(this, windows)
         Settings.prefs(this).registerOnSharedPreferenceChangeListener(settingsChanged)
+        if (BuildConfig.DEBUG) registerTestHook()
+    }
+
+    /**
+     * Debug builds only: `adb shell am broadcast -a com.micflow.android.TEST_TYPE --es text "…"`
+     * types the text into the focused field the way a dictation does (growing live text, then the
+     * final words), so typing can be tested without speaking.
+     */
+    private fun registerTestHook() {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+                val text = intent.getStringExtra("text") ?: return
+                val node = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                // What the field says about itself, for checking placeholder text.
+                val info = if (node == null) "no focused field" else listOf(
+                    "text=[${node.text}]", "hint=[${node.hintText}]", "showingHint=${node.isShowingHintText}",
+                    "sel=${node.textSelectionStart},${node.textSelectionEnd}", "class=${node.className}",
+                    "id=${node.viewIdResourceName}", "inputType=${node.inputType}", "desc=[${node.contentDescription}]",
+                    "editable=${node.isEditable}", "multi=${node.isMultiLine}").joinToString("\n")
+                java.io.File(filesDir, "test-field.txt").writeText(info)
+                if (intent.getBooleanExtra("inspect", false)) return
+                val record = java.io.File(filesDir, "test-field.txt")
+                val field = LiveField.start(node) ?: run { record.appendText("\nno field"); return }
+                record.appendText("\nwrite: " + field.write(text))
+                node.refresh()
+                record.appendText("\nafter: text=[${node.text}] sel=${node.textSelectionStart},${node.textSelectionEnd}")
+            }
+        }
+        registerReceiver(receiver, android.content.IntentFilter("com.micflow.android.TEST_TYPE"), RECEIVER_EXPORTED)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (recording) return
         val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focused != null && focused.isEditable && !focused.isPassword) showBubble(focused) else hideBubble()
+        try {
+            if (focused != null && focused.isEditable && !focused.isPassword) showBubble(focused) else hideBubble()
+            if (BuildConfig.DEBUG) java.io.File(filesDir, "test-bubble.txt")
+                .writeText("event=${event.eventType} focused=${focused?.viewIdResourceName} editable=${focused?.isEditable} shown=$shown")
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) java.io.File(filesDir, "test-bubble.txt").writeText("error: $e")
+        }
     }
 
     override fun onInterrupt() = cancelRecording()
@@ -169,22 +207,45 @@ class MicFlowService : AccessibilityService() {
     // MARK: Recording
 
     private fun startRecording() {
-        val key = Settings.apiKey(this)
-        if (key.isNullOrBlank()) return problem("Open the MicFlow app and add your API key first.")
+        val app = MicFlowApp.shared
+        // Voice typing (both models) needs a Google sign-in first, as on the Mac.
+        if (!app.account.isSignedIn) return problem("Open MicFlow and sign in with Google to use voice typing.")
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return problem("Open the MicFlow app and allow the microphone first.")
         }
         val view = bubble ?: return
+        val engine = Settings.engine(this)
+        val key = Settings.apiKey(this)
+        if (engine == Settings.Engine.MODEL1) {
+            if (key.isNullOrBlank()) return problem("Voice typing isn't set up yet. Open MicFlow to finish it (about a minute).")
+            if (Settings.keyRefused(this)) return problem(FREE_PLAN_OFF)
+        } else if (!Model2Listener.isAvailable(this)) {
+            return problem("This phone has no speech recognition for Model 2. Use Model 1 in the MicFlow app.")
+        }
         live = LiveField.start(findFocus(AccessibilityNodeInfo.FOCUS_INPUT))
-        val transcription = LiveTranscriber(key,
-            onText = { text -> showLive(text) },
-            onError = { if (recording) { cancelRecording(); problem(it) } })
         lastSpeech = System.currentTimeMillis()
+        startedAt = lastSpeech
+        Log.i(TAG, "Recording starts with $engine")
+        if (engine == Settings.Engine.MODEL2) {
+            val listener = Model2Listener(this, Settings.model2Language(this).code,
+                onText = { text -> showLive(text) },
+                onLevel = { level -> heard(level) },
+                onError = { message -> if (recording) { cancelRecording(); problem(message) } })
+            model2 = listener
+            if (!listener.start()) { model2 = null; return problem("Model 2 couldn't start. Try again, or use Model 1.") }
+            view.state = BubbleView.State.RECORDING
+            return
+        }
+        val transcription = LiveTranscriber(key!!,
+            onText = { text -> showLive(text) },
+            onError = { message ->
+                if (message == FREE_PLAN_OFF) MicFlowApp.shared.keyWasRefused()
+                if (recording) { cancelRecording(); problem(message) }
+            })
         val mic = AudioCapture { pcm, level ->
             transcription.append(pcm, level)
             view.post { heard(level) }
         }
-        Log.i(TAG, "Recording starts")
         if (!mic.start()) {
             transcription.cancel()
             return problem("Couldn't open the microphone. Is another app using it?")
@@ -218,8 +279,9 @@ class MicFlowService : AccessibilityService() {
 
     /** Stops and keeps exactly what's shown, right away. */
     private fun finishRecording() {
-        val transcription = transcriber ?: return
-        val text = transcription.text
+        val heardText = transcriber?.text ?: model2?.text ?: return
+        val text = MyWords.spell(heardText, Settings.words(this))
+        val seconds = (System.currentTimeMillis() - startedAt) / 1000.0
         val field = live
         stop()
         Log.i(TAG, "Done: ${text.length} characters")
@@ -231,27 +293,38 @@ class MicFlowService : AccessibilityService() {
         // The field didn't take live text: try once more now that typing has stopped.
         val written = field?.takeIf { it.write(text) }
             ?: LiveField.start(findFocus(AccessibilityNodeInfo.FOCUS_INPUT))?.takeIf { it.write(text) }
-        if (written == null) return problem("Couldn't type in this field. Your words: $text")
+        if (written == null) {
+            MicFlowApp.shared.log.add(text, seconds)
+            return problem("Couldn't type in this field. Your words: $text")
+        }
         top.hide()
-        polish(written, text)
+        polish(written, text, seconds)
     }
 
     /**
      * Swaps the raw words for a polished version once it's back (about a second), but only if the
      * field still holds exactly what MicFlow typed: if you've edited or sent it, it's left alone.
      */
-    private fun polish(field: LiveField, raw: String) {
+    private fun polish(field: LiveField, raw: String, seconds: Double) {
         val key = Settings.apiKey(this)
-        if (!Settings.polish(this) || key.isNullOrBlank()) return
+        if (!Settings.polish(this) || key.isNullOrBlank()) {
+            MicFlowApp.shared.log.add(raw, seconds)
+            return
+        }
         val view = bubble
         view?.polishing = true
-        Polisher.polish(key, raw) { polished ->
+        val instructions = Polisher.instructions(
+            if (Settings.fixMixUps(this)) Settings.mixUps(this) else emptyList(),
+            if (Settings.instructionsEnabled(this)) Settings.instructions(this) else "")
+        Polisher.polish(key, raw, instructions) { answer ->
             view?.polishing = false
+            val polished = answer?.let { MyWords.spell(it, Settings.words(this)) }
             when {
                 polished == null || polished == raw -> Log.i(TAG, "Kept the raw text")
                 field.replace(raw, polished) -> Log.i(TAG, "Replaced with the polished text")
                 else -> Log.i(TAG, "The field changed meanwhile; kept it as it is")
             }
+            MicFlowApp.shared.log.add(polished ?: raw, seconds)
         }
     }
 
@@ -268,6 +341,8 @@ class MicFlowService : AccessibilityService() {
         capture = null
         transcriber?.cancel()
         transcriber = null
+        model2?.stop()
+        model2 = null
         val view = bubble ?: return
         view.state = BubbleView.State.IDLE
         params?.let { layout ->
@@ -294,11 +369,31 @@ class MicFlowService : AccessibilityService() {
         private val after: String,
     ) {
         companion object {
+            /** Each field's hint, remembered from when it had real text (WhatsApp only says it then). */
+            private val knownHints = mutableMapOf<String, String>()
+
+            /**
+             * Whether the field's "text" is really its grey placeholder. Most apps say so, but some
+             * (WhatsApp's "Message") report the placeholder as the text, with no cursor in it.
+             */
+            private fun showsPlaceholder(node: AccessibilityNodeInfo, text: String): Boolean {
+                if (node.isShowingHintText) return true
+                val hint = node.hintText?.toString()
+                val id = node.viewIdResourceName
+                if (!hint.isNullOrEmpty() && id != null) knownHints[id] = hint
+                if (text.isEmpty()) return false
+                if (text == hint) return true
+                // No cursor in a focused field that has "text": it's a placeholder, if it's the hint
+                // seen before or a short one-line label (a real text always has a cursor).
+                val noCursor = node.textSelectionStart < 0 && node.textSelectionEnd < 0
+                return noCursor && (text == knownHints[id] || (text.length <= 40 && '\n' !in text))
+            }
+
             fun start(node: AccessibilityNodeInfo?): LiveField? {
                 if (node == null || !node.isEditable) return null
                 node.refresh()
-                val hint = android.os.Build.VERSION.SDK_INT >= 26 && node.isShowingHintText
-                val existing = if (hint) "" else node.text?.toString().orEmpty()
+                val raw = node.text?.toString().orEmpty()
+                val existing = if (showsPlaceholder(node, raw)) "" else raw
                 val start = node.textSelectionStart.takeIf { it in 0..existing.length } ?: existing.length
                 val end = node.textSelectionEnd.takeIf { it in start..existing.length } ?: start
                 // A space between the text already there and the new words.

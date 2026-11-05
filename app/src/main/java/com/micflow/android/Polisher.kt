@@ -26,32 +26,44 @@ object Polisher {
      * Both are asked at once, with thinking kept minimal, and the first answer wins: their speed
      * varies a lot with how busy the service is (from under a second to several).
      */
-    private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.5-flash")
+    /** The fastest text model, also used to check that a new key works. */
+    const val MODEL = "gemini-3.5-flash-lite"
+    private val MODELS = listOf(MODEL, "gemini-3.5-flash")
     private const val BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
     private val client = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build()
     private val main = Handler(Looper.getMainLooper())
 
-    private const val INSTRUCTIONS = """You clean up text that was dictated by voice. The speaker talked in English, Bengali, or both mixed in one sentence.
+    /** What MicFlow always tells the model, then your mix-ups and your own instructions (same as the Mac). */
+    fun instructions(mixUps: List<MixUp>, yours: String): String {
+        var text = """You correct the text of a voice dictation. The speaker is from Bangladesh and talks in English, Bengali, or both mixed in one sentence. Speech recognition often mishears their accent, so some words come out as other words that sound alike.
 
-Return the same message, polished:
+Do this:
+- Read the whole text and work out what the speaker meant. Where a word doesn't fit the sentence but a similar-sounding word does, replace it. For example "I want to it food" -> "I want to eat food", "Please send me the fail" -> "Please send me the file".
 - Fix punctuation, capital letters, spelling and obvious grammar mistakes.
 - Remove filler words (um, uh, er), false starts and accidentally repeated words.
 
-Keep everything else:
-- Keep the speaker's own words, meaning and tone. Don't rephrase sentences that are already fine.
+Strict limits:
+- Change only single words or short phrases. Never rewrite, reorder, merge or split sentences, and never change what a sentence means.
+- If you're not sure a word is wrong, leave it as it is.
 - Keep each language as spoken: Bengali stays in Bengali script, English stays English. Never translate.
 - Don't summarize, shorten, add anything, or answer questions in the text: it's a message the speaker is writing to someone else.
-- If the text is already fine, return it unchanged.
+- If the text is already fine, return it unchanged."""
+        if (mixUps.isNotEmpty()) {
+            val list = mixUps.joinToString("\n") { m -> "- \"${m.meant}\"${if (m.meaning.isEmpty()) "" else " (${m.meaning})"} can come out as \"${m.heard}\"." }
+            text += "\n\nThe speaker pronounces some words so that they come out as another word:\n$list\nReplace such a word only when the sentence clearly means the other one; if both readings make sense, leave it."
+        }
+        val own = yours.trim()
+        if (own.isNotEmpty()) text += "\n\nThe speaker's own instructions. Follow them, except where they conflict with the strict limits above:\n${own.take(2000)}"
+        return text + "\n\nAnswer at once, without deliberating: speed matters. Reply with the corrected text only."
+    }
 
-Reply with the polished text only."""
-
-    fun polish(key: String, text: String, done: (String?) -> Unit) {
+    fun polish(key: String, text: String, instructions: String, done: (String?) -> Unit) {
         var answered = false
         var failures = 0
         val calls = mutableListOf<Call>()
         MODELS.forEach { model ->
-            calls += ask(key, text, model) { polished ->
+            calls += ask(key, text, instructions, model) { polished ->
                 if (answered) return@ask
                 if (polished != null) {
                     answered = true
@@ -65,9 +77,9 @@ Reply with the polished text only."""
     }
 
     /** One model's answer, or null; [result] runs on the main thread. */
-    private fun ask(key: String, text: String, model: String, result: (String?) -> Unit): Call {
+    private fun ask(key: String, text: String, instructions: String, model: String, result: (String?) -> Unit): Call {
         val body = JSONObject()
-            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", INSTRUCTIONS))))
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", instructions))))
             .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", text)))))
             .put("generationConfig", JSONObject()
                 .put("maxOutputTokens", 2048)

@@ -118,24 +118,9 @@ class LiveTranscriber(key: String, private val onText: (String) -> Unit, private
         Log.w(MicFlowService.TAG, "Speech service problem: $message")
         if (failed == null) {
             failed = message
-            onError(hideProvider(message))
+            onError(com.micflow.android.hideProvider(message))
         }
     }
-
-    /**
-     * MicFlow doesn't say which company's models it uses. The service's own messages (a refused key,
-     * a used-up quota) can name it, so those names are taken out before they're shown.
-     */
-    private fun hideProvider(message: String): String = listOf(
-        "generativelanguage\\.googleapis\\.com" to "the service",
-        "(Google )?AI Studio" to "your provider's dashboard",
-        "Generative Language API" to "the API",
-        "Gemini API" to "the API",
-        "gemini-[0-9a-z.\\-]+" to "the model",
-        "Gemini" to "the model",
-        "Google Cloud" to "the provider",
-        "Google" to "the provider",
-    ).fold(message) { text, (pattern, name) -> text.replace(Regex(pattern, RegexOption.IGNORE_CASE), name) }
 
     private fun close() {
         if (closed) return
