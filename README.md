@@ -18,6 +18,12 @@ Free. No word limit. English, Bengali, or both in one sentence.</p>
 - **Two models:** Model 1 (best, live words, English and Bengali mixed) and Model 2 (needs no key; one language at a time).
 - **Notifications** for new versions (one tap to update) and news.
 
+## Universal Clipboard
+
+Copy on your phone, paste on your Mac, and the other way round, with [MicFlow for Mac](https://github.com/abdulllahel/MicFlow). End-to-end encrypted; link your devices once in **Settings › General › Universal Clipboard**. If an app doesn't send when you tap Copy, use the **Send clipboard** tile in Quick Settings.
+
+![Universal Clipboard](https://raw.githubusercontent.com/abdulllahel/MicFlow/main/Design/Screenshots/universal-clipboard.jpg)
+
 ## Install
 
 Read the **[install guide with pictures (PDF)](MicFlow-Install-Guide.pdf)**. In short:
